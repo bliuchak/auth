@@ -29,6 +29,10 @@ type User struct {
 	Password string
 }
 
+type UserPublic struct {
+	Email string `json:"email"`
+}
+
 type CreateUserRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -337,6 +341,45 @@ func main() {
 		w.WriteHeader(http.StatusAccepted)
 		encoder := json.NewEncoder(w)
 		if err := encoder.Encode(resp); err != nil {
+			logger.Error().Err(err).Msg("Encoder error")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	})
+
+	// todo: add middleware here to check JWT token
+	r.Get("/user/{userID}", func(w http.ResponseWriter, r *http.Request) {
+		userID := chi.URLParam(r, "userID")
+
+		query := gocb.NewN1qlQuery("select Email from users where ID=$userID")
+
+		params := make(map[string]interface{})
+		params["userID"] = userID
+
+		rows, err := users.ExecuteN1qlQuery(query, params)
+		if err != nil {
+			logger.Error().Err(err).Str("user_id", userID).Msg("Can't get user")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		rows.Close()
+
+		if rows.Metrics().ResultCount == 0 {
+			logger.Error().Err(err).Str("user_id", userID).Msg("User not found")
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		var row UserPublic
+		for rows.Next(&row) {
+			logger.Info().Str("email", row.Email).Msg("Successful find user")
+			break
+		}
+
+		w.WriteHeader(http.StatusOK)
+		encoder := json.NewEncoder(w)
+		if err := encoder.Encode(row); err != nil {
 			logger.Error().Err(err).Msg("Encoder error")
 			w.WriteHeader(http.StatusInternalServerError)
 			return
