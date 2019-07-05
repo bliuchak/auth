@@ -1,6 +1,6 @@
 # auth
 
-Basic service for user authorization. It can `register`, `authorize` and `refresh` issues JWT token.
+Basic service for user authorization. It can `register` and `authorize` user, also it can `refresh` issued JWT token.
 
 It's still `work-in-progress` project so the code may look shitty.
 
