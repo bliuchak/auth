@@ -10,7 +10,7 @@ It's still `work-in-progress` project so the code may look shitty.
 - `PUT /user` - create user `{"email":"user@example.com","password":"secret"}`, returns nothing
 - `POST /login` - authorize user `{"email":"user@example.com","password":"secret"}`, returns JWT token `{"token":"jwt..."}`
 - `POST /refresh` - refresh JWT token `{"token":"old_jwt"}`, returns new token with higher expiration time `{"token":"new_jwt"}`
-- `GET /user/:id` - returns user info by ID (in progress)
+- `GET /user/:id` - returns user info by ID `{"email":"user@example.com"}` (add middleware to check JWT token - in progress)
 
 ## Installation
 
@@ -33,6 +33,12 @@ curl --request PUT \
 	"email": "user@example.com",
 	"password": "secret"
 }'
+```
+
+- Get user
+```
+curl --request GET \
+  --url http://localhost:3000/user/{user-id}
 ```
 
 - Login
