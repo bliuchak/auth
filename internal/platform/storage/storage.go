@@ -29,12 +29,12 @@ type User struct {
 }
 
 type Token struct {
-	Token  string `json:"token"`
-	Claims Claims `json:"claims"`
+	Token  string
+	Claims Claims
 }
 
 type Claims struct {
-	ID    uuid.UUID `json:"id"`
-	Email string    `json:"email"`
+	ID    uuid.UUID
+	Email string
 	jwt.StandardClaims
 }
