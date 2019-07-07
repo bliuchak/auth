@@ -13,10 +13,6 @@ const (
 	tokensBucketName = "tokens"
 )
 
-var (
-	ErrUserNotFound = errors.New("user not found")
-)
-
 type Storage struct {
 	cluster *gocb.Cluster
 }
@@ -243,7 +239,7 @@ func (s *Storage) GetNotExpiredTokenByToken(token string) (Token, error) {
 	rows.Close()
 
 	if rows.Metrics().ResultCount == 0 {
-		return Token{}, errors.Wrap(err, "token not found")
+		return Token{}, ErrTokenNotFound
 	}
 
 	var tokenReponse Token

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ibliuchak/auth/internal/platform/storage"
+
 	"github.com/ibliuchak/auth/internal/tokens"
 
 	"golang.org/x/crypto/bcrypt"
@@ -108,6 +110,12 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 	// TODO token deprecation probably should be done in transaction
 	oldToken, err := a.tokens.GetNotExpiredTokenByToken(request.Token)
 	if err != nil {
+		if err == storage.ErrTokenNotFound {
+			a.logger.Error().Err(err).Str("token", request.Token).Msg("Old token not exists or already expired")
+
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		a.logger.Error().Err(err).Str("token", request.Token).Msg("Unable to get not expired token")
 
 		w.WriteHeader(http.StatusInternalServerError)

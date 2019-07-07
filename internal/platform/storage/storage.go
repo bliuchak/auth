@@ -1,8 +1,15 @@
 package storage
 
 import (
+	"errors"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrUserNotFound  = errors.New("user not found")
+	ErrTokenNotFound = errors.New("token not found")
 )
 
 type Storager interface {
