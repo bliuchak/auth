@@ -53,6 +53,12 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.users.GetUserByEmail(request.Email)
 	if err != nil {
+		if err == storage.ErrUserNotFound {
+			a.logger.Error().Err(err).Str("email", request.Email).Msg("user not found")
+
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
 		a.logger.Error().Err(err).Str("email", request.Email).Msg("Can't get user")
 
 		w.WriteHeader(http.StatusInternalServerError)

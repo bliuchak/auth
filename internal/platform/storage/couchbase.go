@@ -119,6 +119,8 @@ func (s *Storage) CreateUser(id uuid.UUID, email, hashedPassword string) error {
 }
 
 func (s *Storage) GetUserByID(id string) (User, error) {
+	var user User
+
 	query := gocb.NewN1qlQuery("select Email from users where ID=$userID")
 
 	params := make(map[string]interface{})
@@ -126,23 +128,22 @@ func (s *Storage) GetUserByID(id string) (User, error) {
 
 	users, err := s.cluster.OpenBucket("users", "")
 	if err != nil {
-		return User{}, errors.Wrap(err, "failed to open bucket")
+		return user, errors.Wrap(err, "failed to open bucket")
 	}
 
 	defer users.Close()
 
 	rows, err := users.ExecuteN1qlQuery(query, params)
 	if err != nil {
-		return User{}, errors.Wrap(err, "can't get user")
+		return user, errors.Wrap(err, "can't get user")
 	}
 
 	rows.Close()
 
 	if rows.Metrics().ResultCount == 0 {
-		return User{}, ErrUserNotFound
+		return user, ErrUserNotFound
 	}
 
-	var user User
 	for rows.Next(&user) {
 		break
 	}
@@ -168,6 +169,12 @@ func (s *Storage) GetUserByEmail(email string) (User, error) {
 	rows, err := users.ExecuteN1qlQuery(query, params)
 	if err != nil {
 		return user, errors.Wrap(err, "can't get user")
+	}
+
+	rows.Close()
+
+	if rows.Metrics().ResultCount == 0 {
+		return User{}, ErrUserNotFound
 	}
 
 	for rows.Next(&user) {
