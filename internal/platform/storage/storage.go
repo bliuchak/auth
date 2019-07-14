@@ -8,18 +8,13 @@ import (
 )
 
 var (
-	ErrUserNotFound  = errors.New("user not found")
-	ErrTokenNotFound = errors.New("token not found")
+	ErrUserNotFound = errors.New("user not found")
 )
 
 type Storager interface {
 	CreateUser(id uuid.UUID, email, hashedPassword string) error
 	GetUserByID(id string) (User, error)
 	GetUserByEmail(email string) (User, error)
-
-	CreateToken(token string, claims Claims) error
-	DeprecateToken(token Token) error
-	GetNotExpiredTokenByToken(token string) (Token, error)
 }
 
 type User struct {

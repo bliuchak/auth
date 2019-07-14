@@ -76,7 +76,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 
 	a.logger.Info().Str("email", user.Email).Msg("Successful login")
 
-	expiration := time.Now().Add(30 * time.Minute)
+	expiration := time.Now().Add(1 * time.Hour)
 	token, err := a.tokens.CreateToken(user.ID, user.Email, expiration)
 	if err != nil {
 		a.logger.Error().Err(err).Str("email", request.Email).Msg("can't create token")
@@ -85,7 +85,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.logger.Info().Str("token", token.Token).Time("exp", expiration).Msg("New token issued")
+	a.logger.Info().Str("email", user.Email).Time("exp", expiration).Msg("New token issued")
 
 	resp := loginResponse{
 		Token: token.Token,
@@ -114,49 +114,49 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO token deprecation probably should be done in transaction
-	oldToken, err := a.tokens.GetNotExpiredTokenByToken(request.Token)
-	if err != nil {
-		if err == storage.ErrTokenNotFound {
-			a.logger.Error().Err(err).Str("token", request.Token).Msg("Old token not exists or already expired")
+	//oldToken, err := a.tokens.GetTokenByToken(request.Token)
+	//if err != nil {
+	//	if err == storage.ErrTokenNotFound {
+	//		a.logger.Error().Err(err).Str("token", request.Token).Msg("Old token not exists or already expired")
+	//
+	//		w.WriteHeader(http.StatusNotFound)
+	//		return
+	//	}
+	//	a.logger.Error().Err(err).Str("token", request.Token).Msg("Unable to get not expired token")
+	//
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
 
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		a.logger.Error().Err(err).Str("token", request.Token).Msg("Unable to get not expired token")
+	//expiration := time.Now().Add(30 * time.Minute)
+	//newToken, err := a.tokens.CreateToken(oldToken.Claims.ID, oldToken.Claims.Email, expiration)
+	//if err != nil {
+	//	a.logger.Error().Err(err).
+	//		Str("user_id", oldToken.Claims.ID.String()).
+	//		Str("email", oldToken.Claims.Email).
+	//		Msg("Unable to create new token")
+	//
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
 
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	expiration := time.Now().Add(30 * time.Minute)
-	newToken, err := a.tokens.CreateToken(oldToken.Claims.ID, oldToken.Claims.Email, expiration)
-	if err != nil {
-		a.logger.Error().Err(err).
-			Str("user_id", oldToken.Claims.ID.String()).
-			Str("email", oldToken.Claims.Email).
-			Msg("Unable to create new token")
-
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = a.tokens.DeprecateToken(oldToken)
-	if err != nil {
-		a.logger.Error().Err(err).Str("token", oldToken.Token).Msg("Unable to deprecate token")
-
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	//err = a.tokens.DeprecateToken(oldToken)
+	//if err != nil {
+	//	a.logger.Error().Err(err).Str("token", oldToken.Token).Msg("Unable to deprecate token")
+	//
+	//	w.WriteHeader(http.StatusInternalServerError)
+	//	return
+	//}
 
 	resp := loginResponse{
-		Token: newToken.Token,
+		Token: "",
 	}
 
-	a.logger.Info().
-		Str("old_token", oldToken.Token).
-		Str("new_token", newToken.Token).
-		Time("exp", expiration).
-		Msg("Token has been refreshed")
+	//a.logger.Info().
+	//	Str("old_token", oldToken.Token).
+	//	Str("new_token", newToken.Token).
+	//	Time("exp", expiration).
+	//	Msg("Token has been refreshed")
 
 	w.WriteHeader(http.StatusAccepted)
 	encoder := json.NewEncoder(w)

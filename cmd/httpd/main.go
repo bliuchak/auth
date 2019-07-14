@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	Server "github.com/ibliuchak/auth/cmd/httpd/server"
+
 	"github.com/ibliuchak/auth/internal/tokens"
 
 	"github.com/ibliuchak/auth/internal/platform/storage"
@@ -24,6 +26,7 @@ func main() {
 	clusterAddress := "couchbase://auth_storage_1"
 	clusterUsername := "admin"
 	clusterPassword := "testtest"
+	jwtKey := []byte("my_secret_key")
 
 	logger := zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Logger()
 
@@ -37,8 +40,10 @@ func main() {
 	usersModel := users.NewUsers(st)
 	uh := handlers.NewUsers(&logger, *usersModel)
 
-	tokensModel := tokens.NewTokens(st)
+	tokensModel := tokens.NewTokens(jwtKey, st)
 	ah := handlers.NewAuth(logger, *usersModel, *tokensModel)
+
+	m := Server.NewMiddleware(jwtKey, logger)
 
 	// TODO: separate router
 	r := chi.NewRouter()
@@ -47,7 +52,7 @@ func main() {
 	r.Put("/user", uh.CreateUser)
 	r.Post("/login", ah.Login)
 	r.Post("/refresh", ah.Refresh)
-	r.Get("/user/{userID}", uh.GetUserByID)
+	r.With(m.JWTValidation).Get("/user/{userID}", uh.GetUserByID)
 
 	logger.Info().Str("port", port).Msg("Start http server")
 
