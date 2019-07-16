@@ -8,14 +8,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	Server "github.com/ibliuchak/auth/cmd/httpd/server"
-
 	"github.com/ibliuchak/auth/internal/tokens"
 
 	"github.com/ibliuchak/auth/internal/platform/storage"
 	"github.com/ibliuchak/auth/internal/users"
 
 	"github.com/ibliuchak/auth/cmd/httpd/handlers"
+	"github.com/ibliuchak/auth/cmd/httpd/server"
 
 	"github.com/go-chi/chi"
 	"github.com/rs/zerolog"
@@ -32,7 +31,7 @@ func main() {
 
 	st, err := storage.NewCouchbaseStorage(clusterAddress, clusterUsername, clusterPassword)
 	if err != nil {
-		logger.Panic().Err(err).Str("address", clusterAddress).Msg("can't init storage")
+		logger.Error().Err(err).Str("address", clusterAddress).Msg("can't init storage")
 	}
 
 	hh := handlers.NewHome(&logger)
@@ -43,7 +42,7 @@ func main() {
 	tokensModel := tokens.NewTokens(jwtKey, st)
 	ah := handlers.NewAuth(logger, *usersModel, *tokensModel)
 
-	m := Server.NewMiddleware(jwtKey, logger)
+	m := server.NewMiddleware(jwtKey, logger)
 
 	// TODO: separate router
 	r := chi.NewRouter()

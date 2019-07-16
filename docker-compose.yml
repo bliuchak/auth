@@ -6,12 +6,10 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       TZ: Europe/Prague
-      GOFLAGS: -mod=readonly
     ports:
       - "3000:3000"
     volumes:
       - .:/opt/app
-      - ~/go/pkg:/go/pkg:ro
     networks:
       - lab
   storage:

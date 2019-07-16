@@ -65,7 +65,6 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// compare request password and record password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
 	if err != nil {
 		a.logger.Error().Err(err).Str("email", user.Email).Msg("Bad password")
