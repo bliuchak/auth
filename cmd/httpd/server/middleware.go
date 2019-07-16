@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/http"
@@ -75,9 +76,11 @@ func (m *Middleware) JWTValidation(next http.Handler) http.Handler {
 			m.logger.Info().
 				Interface("user_id", claims["id"]).
 				Str("exp", time.Unix(int64(sec), int64(dec*(1e9))).Format(time.RFC3339)).
-				Msg("token is valid")
+				Msg("token is validated by middleware")
 
-			next.ServeHTTP(w, r)
+			ctx := context.WithValue(context.Background(), "claims", claims)
+
+			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
 			m.logger.Error().Err(err).Msg("couldn't handle this token")
 			w.WriteHeader(http.StatusForbidden)

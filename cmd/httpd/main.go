@@ -50,7 +50,7 @@ func main() {
 	r.Get("/", hh.GetHome)
 	r.Put("/user", uh.CreateUser)
 	r.Post("/login", ah.Login)
-	r.Post("/refresh", ah.Refresh)
+	r.With(m.JWTValidation).Post("/refresh", ah.Refresh)
 	r.With(m.JWTValidation).Get("/user/{userID}", uh.GetUserByID)
 
 	logger.Info().Str("port", port).Msg("Start http server")
