@@ -78,7 +78,8 @@ func (m *Middleware) JWTValidation(next http.Handler) http.Handler {
 				Str("exp", time.Unix(int64(sec), int64(dec*(1e9))).Format(time.RFC3339)).
 				Msg("token is validated by middleware")
 
-			ctx := context.WithValue(context.Background(), "claims", claims)
+			ctx := context.WithValue(context.Background(), "userID", claims["id"].(string))
+			ctx = context.WithValue(ctx, "email", claims["email"].(string))
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {

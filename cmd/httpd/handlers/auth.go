@@ -7,8 +7,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/dgrijalva/jwt-go"
-
 	"github.com/ibliuchak/auth/internal/platform/storage"
 
 	"github.com/ibliuchak/auth/internal/tokens"
@@ -101,13 +99,14 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
-	claims := r.Context().Value("claims").(jwt.MapClaims)
+	userID := r.Context().Value("userID").(string)
+	email := r.Context().Value("email").(string)
 
-	uuid, err := uuid.Parse(claims["id"].(string))
+	uuid, err := uuid.Parse(userID)
 	if err != nil {
 		a.logger.Warn().
 			Err(err).
-			Str("email", claims["email"].(string)).
+			Str("email", email).
 			Msg("can't parse uuid from context claims")
 
 		w.WriteHeader(http.StatusBadRequest)
@@ -115,11 +114,11 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	expiration := time.Now().Add(1 * time.Hour)
-	token, err := a.tokens.CreateToken(uuid, claims["email"].(string), expiration)
+	token, err := a.tokens.CreateToken(uuid, email, expiration)
 	if err != nil {
 		a.logger.Error().
 			Err(err).
-			Str("email", claims["email"].(string)).
+			Str("email", email).
 			Msg("can't create token")
 
 		w.WriteHeader(http.StatusInternalServerError)
@@ -127,7 +126,7 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.logger.Info().
-		Str("email", claims["email"].(string)).
+		Str("email", email).
 		Time("exp", expiration).
 		Msg("token refreshed")
 
