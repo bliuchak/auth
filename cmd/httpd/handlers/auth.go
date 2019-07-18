@@ -102,7 +102,7 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("userID").(string)
 	email := r.Context().Value("email").(string)
 
-	uuid, err := uuid.Parse(userID)
+	userUUID, err := uuid.Parse(userID)
 	if err != nil {
 		a.logger.Warn().
 			Err(err).
@@ -113,12 +113,38 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiration := time.Now().Add(1 * time.Hour)
-	token, err := a.tokens.CreateToken(uuid, email, expiration)
+	user, err := a.users.GetUserByID(userID)
 	if err != nil {
 		a.logger.Error().
 			Err(err).
-			Str("email", email).
+			Str("userID", userID).
+			Msg("can't get user")
+
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if user.Email != email {
+		a.logger.Warn().
+			Err(err).
+			Str("dbEmail", user.Email).
+			Str("ctxEmail", email).
+			Msg("emails aren't equal")
+
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+
+	a.logger.Info().
+		Str("email", user.Email).
+		Msg("user validated before issue refresh token")
+
+	expiration := time.Now().Add(1 * time.Hour)
+	token, err := a.tokens.CreateToken(userUUID, user.Email, expiration)
+	if err != nil {
+		a.logger.Error().
+			Err(err).
+			Str("email", user.Email).
 			Msg("can't create token")
 
 		w.WriteHeader(http.StatusInternalServerError)
@@ -126,7 +152,7 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.logger.Info().
-		Str("email", email).
+		Str("email", user.Email).
 		Time("exp", expiration).
 		Msg("token refreshed")
 
