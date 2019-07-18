@@ -39,7 +39,7 @@ curl --request PUT \
 ```
 curl --request GET \
   --url http://localhost:3000/user/64ac6833-aaa2-4071-acdf-3104b88847e2 \
-  --header 'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0YWM2ODMzLWFhYTItNDA3MS1hY2RmLTMxMDRiODg4NDdlMiIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImV4cCI6MTU2MzMxMDMwOH0.wLhzASqjoMAVRC5vWjfyTg_JD7I83e6If1D9LTHojMc'
+  --header 'authorization: Bearer [JWT_TOKEN]'
 ```
 
 - Login
@@ -57,5 +57,5 @@ curl --request POST \
 ```
 curl --request POST \
   --url http://localhost:3000/refresh \
-  --header 'authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY0YWM2ODMzLWFhYTItNDA3MS1hY2RmLTMxMDRiODg4NDdlMiIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsImV4cCI6MTU2MzMxMzg2NH0.Oc1TxVQoxmLcT5TFwxdE2GEKjKpM22hlu3jpAuBNoUQ'
+  --header 'authorization: Bearer [JWT_TOKEN'
 ```
