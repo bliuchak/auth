@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/ibliuchak/auth/internal/platform/storage"
 
 	"github.com/ibliuchak/auth/internal/tokens"
@@ -35,10 +37,6 @@ type loginResponse struct {
 	Token string `json:"token"`
 }
 
-type validateTokenRequest struct {
-	Token string `json:"token"`
-}
-
 func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 	var request loginRequest
 
@@ -65,7 +63,6 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// compare request password and record password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(request.Password))
 	if err != nil {
 		a.logger.Error().Err(err).Str("email", user.Email).Msg("Bad password")
@@ -76,7 +73,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 
 	a.logger.Info().Str("email", user.Email).Msg("Successful login")
 
-	expiration := time.Now().Add(30 * time.Minute)
+	expiration := time.Now().Add(1 * time.Hour)
 	token, err := a.tokens.CreateToken(user.ID, user.Email, expiration)
 	if err != nil {
 		a.logger.Error().Err(err).Str("email", request.Email).Msg("can't create token")
@@ -85,7 +82,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.logger.Info().Str("token", token.Token).Time("exp", expiration).Msg("New token issued")
+	a.logger.Info().Str("email", user.Email).Time("exp", expiration).Msg("New token issued")
 
 	resp := loginResponse{
 		Token: token.Token,
@@ -102,66 +99,73 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
-	var request validateTokenRequest
+	userID := r.Context().Value("userID").(string)
+	email := r.Context().Value("email").(string)
 
-	decoder := json.NewDecoder(r.Body)
-	err := decoder.Decode(&request)
+	userUUID, err := uuid.Parse(userID)
 	if err != nil {
-		a.logger.Error().Err(err).Msg("Unable to decode login data")
+		a.logger.Warn().
+			Err(err).
+			Str("email", email).
+			Msg("can't parse uuid from context claims")
+
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	user, err := a.users.GetUserByID(userID)
+	if err != nil {
+		a.logger.Error().
+			Err(err).
+			Str("userID", userID).
+			Msg("can't get user")
 
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	// TODO token deprecation probably should be done in transaction
-	oldToken, err := a.tokens.GetNotExpiredTokenByToken(request.Token)
-	if err != nil {
-		if err == storage.ErrTokenNotFound {
-			a.logger.Error().Err(err).Str("token", request.Token).Msg("Old token not exists or already expired")
+	if user.Email != email {
+		a.logger.Warn().
+			Err(err).
+			Str("dbEmail", user.Email).
+			Str("ctxEmail", email).
+			Msg("emails aren't equal")
 
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		a.logger.Error().Err(err).Str("token", request.Token).Msg("Unable to get not expired token")
-
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusForbidden)
 		return
-	}
-
-	expiration := time.Now().Add(30 * time.Minute)
-	newToken, err := a.tokens.CreateToken(oldToken.Claims.ID, oldToken.Claims.Email, expiration)
-	if err != nil {
-		a.logger.Error().Err(err).
-			Str("user_id", oldToken.Claims.ID.String()).
-			Str("email", oldToken.Claims.Email).
-			Msg("Unable to create new token")
-
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	err = a.tokens.DeprecateToken(oldToken)
-	if err != nil {
-		a.logger.Error().Err(err).Str("token", oldToken.Token).Msg("Unable to deprecate token")
-
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	resp := loginResponse{
-		Token: newToken.Token,
 	}
 
 	a.logger.Info().
-		Str("old_token", oldToken.Token).
-		Str("new_token", newToken.Token).
-		Time("exp", expiration).
-		Msg("Token has been refreshed")
+		Str("email", user.Email).
+		Msg("user validated before issue refresh token")
 
-	w.WriteHeader(http.StatusAccepted)
+	expiration := time.Now().Add(1 * time.Hour)
+	token, err := a.tokens.CreateToken(userUUID, user.Email, expiration)
+	if err != nil {
+		a.logger.Error().
+			Err(err).
+			Str("email", user.Email).
+			Msg("can't create token")
+
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	a.logger.Info().
+		Str("email", user.Email).
+		Time("exp", expiration).
+		Msg("token refreshed")
+
+	resp := loginResponse{
+		Token: token.Token,
+	}
+
+	w.WriteHeader(http.StatusOK)
 	encoder := json.NewEncoder(w)
 	if err := encoder.Encode(resp); err != nil {
-		a.logger.Error().Err(err).Msg("Encoder error")
+		a.logger.Error().
+			Err(err).
+			Msg("Encoder error")
 
 		w.WriteHeader(http.StatusInternalServerError)
 		return

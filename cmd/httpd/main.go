@@ -14,6 +14,7 @@ import (
 	"github.com/ibliuchak/auth/internal/users"
 
 	"github.com/ibliuchak/auth/cmd/httpd/handlers"
+	"github.com/ibliuchak/auth/cmd/httpd/server"
 
 	"github.com/go-chi/chi"
 	"github.com/rs/zerolog"
@@ -24,12 +25,13 @@ func main() {
 	clusterAddress := "couchbase://auth_storage_1"
 	clusterUsername := "admin"
 	clusterPassword := "testtest"
+	jwtKey := []byte("my_secret_key")
 
 	logger := zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Logger()
 
 	st, err := storage.NewCouchbaseStorage(clusterAddress, clusterUsername, clusterPassword)
 	if err != nil {
-		logger.Panic().Err(err).Str("address", clusterAddress).Msg("can't init storage")
+		logger.Error().Err(err).Str("address", clusterAddress).Msg("can't init storage")
 	}
 
 	hh := handlers.NewHome(&logger)
@@ -37,8 +39,10 @@ func main() {
 	usersModel := users.NewUsers(st)
 	uh := handlers.NewUsers(&logger, *usersModel)
 
-	tokensModel := tokens.NewTokens(st)
+	tokensModel := tokens.NewTokens(jwtKey, st)
 	ah := handlers.NewAuth(logger, *usersModel, *tokensModel)
+
+	m := server.NewMiddleware(jwtKey, logger)
 
 	// TODO: separate router
 	r := chi.NewRouter()
@@ -46,8 +50,8 @@ func main() {
 	r.Get("/", hh.GetHome)
 	r.Put("/user", uh.CreateUser)
 	r.Post("/login", ah.Login)
-	r.Post("/refresh", ah.Refresh)
-	r.Get("/user/{userID}", uh.GetUserByID)
+	r.With(m.JWTValidation).Post("/refresh", ah.Refresh)
+	r.With(m.JWTValidation).Get("/user/{userID}", uh.GetUserByID)
 
 	logger.Info().Str("port", port).Msg("Start http server")
 

@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	usersBucketName  = "users"
-	tokensBucketName = "tokens"
+	usersBucketName = "users"
 )
 
 type Storage struct {
@@ -19,9 +18,8 @@ type Storage struct {
 
 func NewCouchbaseStorage(address, username, password string) (*Storage, error) {
 	var (
-		bucketPassword     string
-		usersBucketExists  bool
-		tokensBucketExists bool
+		bucketPassword    string
+		usersBucketExists bool
 	)
 	defaultBucketQuota := 100
 
@@ -41,9 +39,6 @@ func NewCouchbaseStorage(address, username, password string) (*Storage, error) {
 	for _, bucket := range buckets {
 		if bucket.Name == usersBucketName {
 			usersBucketExists = true
-		}
-		if bucket.Name == tokensBucketName {
-			tokensBucketExists = true
 		}
 	}
 
@@ -67,29 +62,6 @@ func NewCouchbaseStorage(address, username, password string) (*Storage, error) {
 
 		if err := users.Manager(username, password).CreatePrimaryIndex("", true, false); err != nil {
 			return nil, errors.Wrap(err, "can't create primary index in 'users' bucket")
-		}
-	}
-
-	if !tokensBucketExists {
-		err = cluster.Manager(username, password).InsertBucket(&gocb.BucketSettings{
-			Name:  tokensBucketName,
-			Quota: defaultBucketQuota,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "can't create 'tokens' bucket")
-		}
-
-		// TODO figure out better way how to wait until bucket will be ready
-		// see also https://forums.couchbase.com/t/bucket-creation-callback/17220
-		time.Sleep(2 * time.Second)
-
-		tokens, err := cluster.OpenBucket(tokensBucketName, bucketPassword)
-		if err != nil {
-			return nil, errors.Wrap(err, "can't open 'tokens' bucket")
-		}
-
-		if err := tokens.Manager(username, password).CreatePrimaryIndex("", true, false); err != nil {
-			return nil, errors.Wrap(err, "can't create primary index in 'tokens' bucket")
 		}
 	}
 
@@ -182,77 +154,4 @@ func (s *Storage) GetUserByEmail(email string) (User, error) {
 	}
 
 	return user, nil
-}
-
-func (s *Storage) CreateToken(token string, claims Claims) error {
-	tokenData := Token{
-		Token:  token,
-		Claims: claims,
-	}
-
-	tokens, err := s.cluster.OpenBucket(tokensBucketName, "")
-	if err != nil {
-		return errors.Wrap(err, "can't open 'tokens' bucket")
-	}
-
-	defer tokens.Close()
-
-	_, err = tokens.Upsert(token, tokenData, 0)
-	if err != nil {
-		return errors.Wrap(err, "can't upset token")
-	}
-
-	return nil
-}
-
-func (s *Storage) DeprecateToken(token Token) error {
-	// set token expiration time if far far past
-	token.Claims.ExpiresAt = 1
-
-	tokens, err := s.cluster.OpenBucket(tokensBucketName, "")
-	if err != nil {
-		return errors.Wrap(err, "can't open 'tokens' bucket")
-	}
-
-	defer tokens.Close()
-
-	_, err = tokens.Upsert(token.Token, token, 0)
-	if err != nil {
-		return errors.Wrap(err, "can't upsert token")
-	}
-
-	return nil
-}
-
-func (s *Storage) GetNotExpiredTokenByToken(token string) (Token, error) {
-	query := gocb.NewN1qlQuery("select claims, token from tokens where claims.exp > $now and token = $token")
-
-	params := make(map[string]interface{})
-	params["token"] = token
-	params["now"] = time.Now().Unix()
-
-	tokens, err := s.cluster.OpenBucket(tokensBucketName, "")
-	if err != nil {
-		return Token{}, errors.Wrap(err, "can't open 'tokens' bucket")
-	}
-
-	defer tokens.Close()
-
-	rows, err := tokens.ExecuteN1qlQuery(query, params)
-	if err != nil {
-		return Token{}, errors.Wrap(err, "can't get token")
-	}
-
-	rows.Close()
-
-	if rows.Metrics().ResultCount == 0 {
-		return Token{}, ErrTokenNotFound
-	}
-
-	var tokenReponse Token
-	for rows.Next(&tokenReponse) {
-		break
-	}
-
-	return tokenReponse, nil
 }
