@@ -19,6 +19,13 @@ type Middleware struct {
 	logger zerolog.Logger
 }
 
+type key int
+
+const (
+	KeyUserID key = iota
+	KeyEmail
+)
+
 var (
 	ErrClaimsIDMissed    = errors.New("missed user ID in claims")
 	ErrClaimsEmailMissed = errors.New("missed user email in claims")
@@ -78,8 +85,8 @@ func (m *Middleware) JWTValidation(next http.Handler) http.Handler {
 				Str("exp", time.Unix(int64(sec), int64(dec*(1e9))).Format(time.RFC3339)).
 				Msg("token is validated by middleware")
 
-			ctx := context.WithValue(context.Background(), "userID", claims["id"].(string))
-			ctx = context.WithValue(ctx, "email", claims["email"].(string))
+			ctx := context.WithValue(r.Context(), KeyUserID, claims["id"].(string))
+			ctx = context.WithValue(ctx, KeyEmail, claims["email"].(string))
 
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {

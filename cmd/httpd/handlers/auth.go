@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/ibliuchak/auth/cmd/httpd/server"
 	"github.com/ibliuchak/auth/internal/platform/storage"
 
 	"github.com/ibliuchak/auth/internal/tokens"
@@ -14,7 +15,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/ibliuchak/auth/internal/users"
-
 	"github.com/rs/zerolog"
 )
 
@@ -99,8 +99,8 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value("userID").(string)
-	email := r.Context().Value("email").(string)
+	userID := r.Context().Value(server.KeyUserID).(string)
+	email := r.Context().Value(server.KeyEmail).(string)
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
