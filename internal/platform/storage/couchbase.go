@@ -93,7 +93,7 @@ func (s *Storage) CreateUser(id uuid.UUID, email, hashedPassword string) error {
 func (s *Storage) GetUserByID(id string) (User, error) {
 	var user User
 
-	query := gocb.NewN1qlQuery("select Email from users where ID=$userID")
+	query := gocb.NewN1qlQuery("select email from users where id=$userID")
 
 	params := make(map[string]interface{})
 	params["userID"] = id
@@ -126,7 +126,7 @@ func (s *Storage) GetUserByID(id string) (User, error) {
 func (s *Storage) GetUserByEmail(email string) (User, error) {
 	var user User
 
-	query := gocb.NewN1qlQuery("select `ID`,`Email`,`Password` from `users` where `Email`=$email")
+	query := gocb.NewN1qlQuery("select `id`,`email`,`password` from `users` where `email`=$email")
 
 	params := make(map[string]interface{})
 	params["email"] = email
