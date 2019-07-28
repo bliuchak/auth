@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"encoding/json"
@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/ibliuchak/auth/cmd/httpd/server"
 	"github.com/ibliuchak/auth/internal/platform/storage"
 
 	"github.com/ibliuchak/auth/internal/tokens"
@@ -99,8 +98,8 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
-	userID := r.Context().Value(server.KeyUserID).(string)
-	email := r.Context().Value(server.KeyEmail).(string)
+	userID := r.Context().Value(KeyUserID).(string)
+	email := r.Context().Value(KeyEmail).(string)
 
 	userUUID, err := uuid.Parse(userID)
 	if err != nil {
