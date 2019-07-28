@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	ErrUserNotFound = errors.New("user not found")
+	ErrUserNotFound    = errors.New("user not found")
+	ErrUserEmailExists = errors.New("user email already existing")
 )
 
 type Storager interface {

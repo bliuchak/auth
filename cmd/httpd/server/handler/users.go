@@ -73,7 +73,12 @@ func (u *Users) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := u.users.CreateUser(request.Email, request.Password); err != nil {
+	err = u.users.CreateUser(request.Email, request.Password)
+	if err == storage.ErrUserEmailExists {
+		u.logger.Warn().Err(err).Str("email", request.Email).Msg("email already existing")
+		w.WriteHeader(http.StatusConflict)
+		return
+	} else if err != nil {
 		u.logger.Error().Err(err).Str("email", request.Email).Msg("fail to create user")
 
 		w.WriteHeader(http.StatusInternalServerError)
