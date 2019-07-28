@@ -21,10 +21,12 @@ type Auth struct {
 	logger zerolog.Logger
 	users  users.Users
 	tokens tokens.Tokens
+
+	tokenExp time.Duration
 }
 
-func NewAuth(logger zerolog.Logger, users users.Users, tokens tokens.Tokens) *Auth {
-	return &Auth{logger: logger, users: users, tokens: tokens}
+func NewAuth(logger zerolog.Logger, users users.Users, tokens tokens.Tokens, tokenExp time.Duration) *Auth {
+	return &Auth{logger: logger, users: users, tokens: tokens, tokenExp: tokenExp}
 }
 
 type loginRequest struct {
@@ -72,7 +74,7 @@ func (a *Auth) Login(w http.ResponseWriter, r *http.Request) {
 
 	a.logger.Info().Str("email", user.Email).Msg("Successful login")
 
-	expiration := time.Now().Add(1 * time.Hour)
+	expiration := time.Now().Add(a.tokenExp)
 	token, err := a.tokens.CreateToken(user.ID, user.Email, expiration)
 	if err != nil {
 		a.logger.Error().Err(err).Str("email", request.Email).Msg("can't create token")
@@ -138,7 +140,7 @@ func (a *Auth) Refresh(w http.ResponseWriter, r *http.Request) {
 		Str("email", user.Email).
 		Msg("user validated before issue refresh token")
 
-	expiration := time.Now().Add(1 * time.Hour)
+	expiration := time.Now().Add(a.tokenExp)
 	token, err := a.tokens.CreateToken(userUUID, user.Email, expiration)
 	if err != nil {
 		a.logger.Error().

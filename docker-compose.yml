@@ -13,6 +13,7 @@ services:
       DB_USER: admin
       DB_PASS: testtest
       JWT_KEY: my_secret_key
+      TOKEN_EXP: 1h
     ports:
       - "3000:3000"
     volumes:

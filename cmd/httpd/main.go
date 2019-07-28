@@ -19,11 +19,12 @@ import (
 var (
 	logger = new(zerolog.Logger)
 
-	port   = kingpin.Flag("port", "port to listen").Envar("PORT").String()
-	dbHost = kingpin.Flag("dbhost", "database host").Envar("DB_HOST").String()
-	dbUser = kingpin.Flag("dbuser", "database user").Envar("DB_USER").String()
-	dbPass = kingpin.Flag("dbpass", "database pass").Envar("DB_PASS").String()
-	jwtKey = kingpin.Flag("jwtkey", "jwt key").Envar("JWT_KEY").String()
+	port     = kingpin.Flag("port", "port to listen").Envar("PORT").String()
+	dbHost   = kingpin.Flag("dbhost", "database host").Envar("DB_HOST").String()
+	dbUser   = kingpin.Flag("dbuser", "database user").Envar("DB_USER").String()
+	dbPass   = kingpin.Flag("dbpass", "database pass").Envar("DB_PASS").String()
+	jwtKey   = kingpin.Flag("jwtkey", "jwt key").Envar("JWT_KEY").String()
+	tokenExp = kingpin.Flag("token-exp", "token expiration in minutes").Default("30m").Envar("TOKEN_EXP").Duration()
 )
 
 func init() {
@@ -47,7 +48,7 @@ func main() {
 	user := handler.NewUsers(logger, *usersModel)
 
 	tokensModel := tokens.NewTokens([]byte(*jwtKey), s)
-	auth := handler.NewAuth(*logger, *usersModel, *tokensModel)
+	auth := handler.NewAuth(*logger, *usersModel, *tokensModel, *tokenExp)
 
 	middleware := handler.NewMiddleware([]byte(*jwtKey), *logger)
 
