@@ -4,16 +4,28 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    container_name: httpd
     environment:
       TZ: Europe/Prague
+      GOFLAGS: -mod=readonly
+      PORT: 3001
+      DB_HOST: couchbase://couchbase_storage
+      DB_USER: admin
+      DB_PASS: testtest
+      JWT_KEY: my_secret_key
     ports:
       - "3000:3000"
     volumes:
       - .:/opt/app
+      - ~/go/pkg:/go/pkg:ro
+      - go-build-cache:/root/.cache/go-build
+    stdin_open: true
+    tty: true
     networks:
       - lab
   storage:
     image: couchbase
+    container_name: couchbase_storage
     ports:
       - "8091:8091"
       - "8092:8092"
@@ -24,6 +36,9 @@ services:
       - .:/opt/couchbase/var
     networks:
       - lab
+
+volumes:
+  go-build-cache:
 
 networks:
   lab:

@@ -1,91 +1,59 @@
 package main
 
 import (
-	"context"
-	"net"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
+	"time"
+
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/ibliuchak/auth/internal/tokens"
 
 	"github.com/ibliuchak/auth/internal/platform/storage"
 	"github.com/ibliuchak/auth/internal/users"
 
-	"github.com/ibliuchak/auth/cmd/httpd/handlers"
 	"github.com/ibliuchak/auth/cmd/httpd/server"
+	"github.com/ibliuchak/auth/cmd/httpd/server/handler"
 
-	"github.com/go-chi/chi"
 	"github.com/rs/zerolog"
 )
 
+var (
+	logger = new(zerolog.Logger)
+
+	port   = kingpin.Flag("port", "port to listen").Envar("PORT").String()
+	dbHost = kingpin.Flag("dbhost", "database host").Envar("DB_HOST").String()
+	dbUser = kingpin.Flag("dbuser", "database user").Envar("DB_USER").String()
+	dbPass = kingpin.Flag("dbpass", "database pass").Envar("DB_PASS").String()
+	jwtKey = kingpin.Flag("jwtkey", "jwt key").Envar("JWT_KEY").String()
+)
+
+func init() {
+	zerolog.TimestampFieldName = "logtimestamp"
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+
+	*logger = zerolog.New(zerolog.NewConsoleWriter()).Level(zerolog.InfoLevel).With().Timestamp().Logger()
+}
+
 func main() {
-	port := "3001"
-	clusterAddress := "couchbase://auth_storage_1"
-	clusterUsername := "admin"
-	clusterPassword := "testtest"
-	jwtKey := []byte("my_secret_key")
+	kingpin.Parse()
 
-	logger := zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Logger()
-
-	st, err := storage.NewCouchbaseStorage(clusterAddress, clusterUsername, clusterPassword)
+	s, err := storage.NewCouchbaseStorage(*dbHost, *dbUser, *dbPass)
 	if err != nil {
-		logger.Error().Err(err).Str("address", clusterAddress).Msg("can't init storage")
+		logger.Error().Err(err).Str("address", *dbHost).Msg("can't init storage")
 	}
 
-	hh := handlers.NewHome(&logger)
+	home := handler.NewHome(logger)
 
-	usersModel := users.NewUsers(st)
-	uh := handlers.NewUsers(&logger, *usersModel)
+	usersModel := users.NewUsers(s)
+	user := handler.NewUsers(logger, *usersModel)
 
-	tokensModel := tokens.NewTokens(jwtKey, st)
-	ah := handlers.NewAuth(logger, *usersModel, *tokensModel)
+	tokensModel := tokens.NewTokens([]byte(*jwtKey), s)
+	auth := handler.NewAuth(*logger, *usersModel, *tokensModel)
 
-	m := server.NewMiddleware(jwtKey, logger)
+	middleware := handler.NewMiddleware([]byte(*jwtKey), *logger)
 
-	// TODO: separate router
-	r := chi.NewRouter()
-
-	r.Get("/", hh.GetHome)
-	r.Put("/user", uh.CreateUser)
-	r.Post("/login", ah.Login)
-	r.With(m.JWTValidation).Post("/refresh", ah.Refresh)
-	r.With(m.JWTValidation).Get("/user/{userID}", uh.GetUserByID)
-
-	logger.Info().Str("port", port).Msg("Start http server")
-
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-
-	shutdown := make(chan error, 1)
-
-	server := http.Server{
-		Addr:    net.JoinHostPort("", port),
-		Handler: r,
-	}
-
-	go func() {
-		err := server.ListenAndServe()
-		shutdown <- err
-	}()
-
-	select {
-	case killSignal := <-interrupt:
-		switch killSignal {
-		case os.Interrupt:
-			logger.Info().Msg("Got SIGINT...")
-		case syscall.SIGTERM:
-			logger.Info().Msg("Got SIGTERM...")
-		}
-	case <-shutdown:
-		logger.Info().Msg("Got an error...")
-	}
-
-	logger.Info().Msg("The service is stopping...")
-	err = server.Shutdown(context.Background())
-	if err != nil {
-		logger.Warn().Err(err).Msg("Got an error during service shutdown")
-	}
-	logger.Info().Msg("The service is stopped")
+	server.NewServer(
+		*logger,
+		server.NewRouter(home, user, auth, middleware).Init(),
+		*port,
+	).Run()
 }
