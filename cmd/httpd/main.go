@@ -1,6 +1,10 @@
 package main
 
 import (
+	"time"
+
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/ibliuchak/auth/internal/tokens"
 
 	"github.com/ibliuchak/auth/internal/platform/storage"
@@ -12,33 +16,44 @@ import (
 	"github.com/rs/zerolog"
 )
 
+var (
+	logger = new(zerolog.Logger)
+
+	port   = kingpin.Flag("port", "port to listen").Envar("PORT").String()
+	dbHost = kingpin.Flag("dbhost", "database host").Envar("DB_HOST").String()
+	dbUser = kingpin.Flag("dbuser", "database user").Envar("DB_USER").String()
+	dbPass = kingpin.Flag("dbpass", "database pass").Envar("DB_PASS").String()
+	jwtKey = kingpin.Flag("jwtkey", "jwt key").Envar("JWT_KEY").String()
+)
+
+func init() {
+	zerolog.TimestampFieldName = "logtimestamp"
+	zerolog.TimeFieldFormat = time.RFC3339Nano
+
+	*logger = zerolog.New(zerolog.NewConsoleWriter()).Level(zerolog.InfoLevel).With().Timestamp().Logger()
+}
+
 func main() {
-	port := "3001"
-	clusterAddress := "couchbase://auth_storage_1"
-	clusterUsername := "admin"
-	clusterPassword := "testtest"
-	jwtKey := []byte("my_secret_key")
+	kingpin.Parse()
 
-	logger := zerolog.New(zerolog.NewConsoleWriter()).With().Timestamp().Logger()
-
-	st, err := storage.NewCouchbaseStorage(clusterAddress, clusterUsername, clusterPassword)
+	s, err := storage.NewCouchbaseStorage(*dbHost, *dbUser, *dbPass)
 	if err != nil {
-		logger.Error().Err(err).Str("address", clusterAddress).Msg("can't init storage")
+		logger.Error().Err(err).Str("address", *dbHost).Msg("can't init storage")
 	}
 
-	home := handler.NewHome(&logger)
+	home := handler.NewHome(logger)
 
-	usersModel := users.NewUsers(st)
-	user := handler.NewUsers(&logger, *usersModel)
+	usersModel := users.NewUsers(s)
+	user := handler.NewUsers(logger, *usersModel)
 
-	tokensModel := tokens.NewTokens(jwtKey, st)
-	auth := handler.NewAuth(logger, *usersModel, *tokensModel)
+	tokensModel := tokens.NewTokens([]byte(*jwtKey), s)
+	auth := handler.NewAuth(*logger, *usersModel, *tokensModel)
 
-	middleware := handler.NewMiddleware(jwtKey, logger)
+	middleware := handler.NewMiddleware([]byte(*jwtKey), *logger)
 
 	server.NewServer(
-		logger,
+		*logger,
 		server.NewRouter(home, user, auth, middleware).Init(),
-		port,
+		*port,
 	).Run()
 }
