@@ -7,6 +7,7 @@ services:
     container_name: httpd
     environment:
       TZ: Europe/Prague
+      GOFLAGS: -mod=readonly
       PORT: 3001
       DB_HOST: couchbase://couchbase_storage
       DB_USER: admin
@@ -16,6 +17,10 @@ services:
       - "3000:3000"
     volumes:
       - .:/opt/app
+      - ~/go/pkg:/go/pkg:ro
+      - go-build-cache:/root/.cache/go-build
+    stdin_open: true
+    tty: true
     networks:
       - lab
   storage:
@@ -31,6 +36,9 @@ services:
       - .:/opt/couchbase/var
     networks:
       - lab
+
+volumes:
+  go-build-cache:
 
 networks:
   lab:
