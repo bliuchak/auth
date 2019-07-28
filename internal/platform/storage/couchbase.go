@@ -75,16 +75,18 @@ func (s *Storage) CreateUser(id uuid.UUID, email, hashedPassword string) error {
 		Password: string(hashedPassword),
 	}
 
-	users, err := s.cluster.OpenBucket("users", "")
+	users, err := s.cluster.OpenBucket(usersBucketName, "")
 	if err != nil {
 		return errors.Wrap(err, "failed to open bucket")
 	}
 
 	defer users.Close()
 
-	_, err = users.Upsert(id.String(), user, 0)
-	if err != nil {
-		return errors.Wrap(err, "failed to upsert user")
+	_, err = users.Insert(user.Email, user, 0)
+	if err == gocb.ErrKeyExists {
+		return ErrUserEmailExists
+	} else if err != nil {
+		return errors.Wrap(err, "failed to insert user")
 	}
 
 	return nil
@@ -98,7 +100,7 @@ func (s *Storage) GetUserByID(id string) (User, error) {
 	params := make(map[string]interface{})
 	params["userID"] = id
 
-	users, err := s.cluster.OpenBucket("users", "")
+	users, err := s.cluster.OpenBucket(usersBucketName, "")
 	if err != nil {
 		return user, errors.Wrap(err, "failed to open bucket")
 	}
